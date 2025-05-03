@@ -1,6 +1,8 @@
+// File: /app/api/evento/route.ts
+
 export async function POST(request: Request) {
   const body = await request.json();
-  const { email, event } = body;
+  const { name, email, phone, event } = body;
 
   if (!email || !event) {
     return new Response(JSON.stringify({ error: "Email e evento obrigatórios" }), { status: 400 });
@@ -24,6 +26,15 @@ export async function POST(request: Request) {
     wistia_100: "quase convertido"
   };
 
+  const PRIORITY: Record<string, number> = {
+    wistia_10: 1,
+    wistia_25: 2,
+    wistia_50: 3,
+    wistia_85: 4,
+    wistia_90: 5,
+    wistia_100: 6
+  };
+
   const API_KEY = process.env.PIPELINE_API_KEY;
 
   try {
@@ -32,42 +43,73 @@ export async function POST(request: Request) {
     });
 
     const people = await personRes.json();
-    if (!Array.isArray(people) || people.length === 0) {
-      return new Response(JSON.stringify({ error: "Pessoa não encontrada" }), { status: 404 });
-    }
-    const person = people[0];
+    let person = people[0];
 
+    // Se a pessoa não existir, cria
+    if (!person) {
+      const newPersonRes = await fetch(`https://api.pipelinecrm.com/api/v3/people`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name, email, phone })
+      });
+      person = await newPersonRes.json();
+    }
+
+    // Buscar deal existente
     const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, {
       headers: { Authorization: `Bearer ${API_KEY}` }
     });
 
-    const deals = await dealsRes.json();
-    if (!Array.isArray(deals) || deals.length === 0) {
-      return new Response(JSON.stringify({ error: "Negócio não encontrado" }), { status: 404 });
-    }
-    const deal = deals[0];
+    let deal = (await dealsRes.json())[0];
 
-    const updateRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        tags: [TAGS[event]],
-        stage: STAGES[event],
-        notes: `Evento recebido: ${event}`
-      })
-    });
+    // Se não tiver deal, cria
+    if (!deal) {
+      const newDealRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: `Negócio de ${name || email}`,
+          person_id: person.id,
+          value: 97,
+          stage: STAGES[event],
+          tags: [TAGS[event]],
+          notes: `Evento inicial: ${event}`
+        })
+      });
+      deal = await newDealRes.json();
+    } else {
+      // Se já tiver evento anterior de prioridade maior, ignora
+      const currentPriority = PRIORITY[event];
+      const existingStage = deal.stage;
+      const stageKey = Object.keys(STAGES).find(key => STAGES[key] === existingStage);
+      if (stageKey && PRIORITY[stageKey] >= currentPriority) {
+        return new Response(JSON.stringify({ skipped: true, reason: "Evento menos relevante que o atual." }), { status: 200 });
+      }
 
-    if (!updateRes.ok) {
-      const errorData = await updateRes.text();
-      throw new Error(`Erro ao atualizar negócio: ${errorData}`);
+      // Atualiza deal com novo evento mais relevante
+      await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          tags: [TAGS[event]],
+          stage: STAGES[event],
+          notes: `Evento atualizado: ${event}`
+        })
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
-    console.error("Erro no webhook:", err);
+    console.error("Erro ao processar evento:", err);
     return new Response(JSON.stringify({ error: err.message || "Erro interno" }), { status: 500 });
   }
 }
