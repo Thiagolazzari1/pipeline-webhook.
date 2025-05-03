@@ -27,14 +27,13 @@ export async function POST(request: Request) {
   const API_KEY = process.env.PIPELINE_API_KEY;
 
   try {
-    // Buscar pessoa
-    const personRes = await fetch(`https://api.pipelinecrm.com/api/v3/people?email=${email}`, {
-      headers: {
-        "Content-Type": "application/json",
-        "api_key": API_KEY
-      }
-    });
+    const headers = {
+      "Authorization": `Token token=${API_KEY}`,
+      "Content-Type": "application/json"
+    };
 
+    // Buscar pessoa
+    const personRes = await fetch(`https://api.pipelinecrm.com/api/v3/people?email=${email}`, { headers });
     const people = await personRes.json();
     console.log("Resposta da busca de pessoa:", people);
 
@@ -44,10 +43,7 @@ export async function POST(request: Request) {
     if (!person) {
       const createPersonRes = await fetch("https://api.pipelinecrm.com/api/v3/people", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api_key": API_KEY
-        },
+        headers,
         body: JSON.stringify({ name, email, phone })
       });
 
@@ -62,13 +58,7 @@ export async function POST(request: Request) {
     }
 
     // Buscar deals
-    const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, {
-      headers: {
-        "Content-Type": "application/json",
-        "api_key": API_KEY
-      }
-    });
-
+    const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, { headers });
     const deals = await dealsRes.json();
     console.log("Deals encontrados:", deals);
 
@@ -78,10 +68,7 @@ export async function POST(request: Request) {
     if (!deal) {
       const createDealRes = await fetch("https://api.pipelinecrm.com/api/v3/deals", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api_key": API_KEY
-        },
+        headers,
         body: JSON.stringify({
           name: `Lead ${name || email}`,
           person_id: person.id,
@@ -104,10 +91,7 @@ export async function POST(request: Request) {
       // Atualizar deal se já existe
       const updateRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "api_key": API_KEY
-        },
+        headers,
         body: JSON.stringify({
           tags: [TAGS[event]],
           stage: STAGES[event],
