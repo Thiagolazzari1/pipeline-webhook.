@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     const personRes = await fetch(`https://api.pipelinecrm.com/api/v3/people?email=${email}`, {
       headers: { Authorization: `Bearer ${API_KEY}` }
     });
+
     const people = await personRes.json();
     console.log("Resposta da busca de pessoa:", people);
 
@@ -44,11 +45,7 @@ export async function POST(request: Request) {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          name,
-          email,
-          phone
-        })
+        body: JSON.stringify({ name, email, phone })
       });
 
       const createdPerson = await createPersonRes.json();
@@ -65,6 +62,7 @@ export async function POST(request: Request) {
     const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, {
       headers: { Authorization: `Bearer ${API_KEY}` }
     });
+
     const deals = await dealsRes.json();
     console.log("Deals encontrados:", deals);
 
@@ -121,7 +119,7 @@ export async function POST(request: Request) {
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
-    console.error("Erro no webhook:", err);
+    console.error("Erro geral:", err);
     return new Response(JSON.stringify({ error: err.message || "Erro interno" }), { status: 500 });
   }
 }
