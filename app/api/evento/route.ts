@@ -25,50 +25,39 @@ export async function POST(request: Request) {
   };
 
   const API_KEY = process.env.PIPELINE_API_KEY;
+  const BASE = "https://api.pipelinecrm.com/api/v3";
 
   try {
-    const headers = {
-      "Authorization": `Token token=${API_KEY}`,
-      "Content-Type": "application/json"
-    };
-
     // Buscar pessoa
-    const personRes = await fetch(`https://api.pipelinecrm.com/api/v3/people?email=${email}`, { headers });
+    const personRes = await fetch(`${BASE}/people?email=${email}&api_key=${API_KEY}`);
     const people = await personRes.json();
-    console.log("Resposta da busca de pessoa:", people);
+    console.log("Pessoa encontrada?", people);
 
     let person = people[0];
 
-    // Criar pessoa se não existe
+    // Criar se não existir
     if (!person) {
-      const createPersonRes = await fetch("https://api.pipelinecrm.com/api/v3/people", {
+      const createPersonRes = await fetch(`${BASE}/people?api_key=${API_KEY}`, {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, phone })
       });
 
       const createdPerson = await createPersonRes.json();
-      console.log("Pessoa criada:", createdPerson);
-
-      if (!createPersonRes.ok) {
-        throw new Error(`Erro ao criar pessoa: ${JSON.stringify(createdPerson)}`);
-      }
-
+      if (!createPersonRes.ok) throw new Error(`Erro ao criar pessoa: ${JSON.stringify(createdPerson)}`);
       person = createdPerson;
+      console.log("Pessoa criada:", person);
     }
 
-    // Buscar deals
-    const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, { headers });
+    // Buscar deal
+    const dealsRes = await fetch(`${BASE}/deals?person_id=${person.id}&api_key=${API_KEY}`);
     const deals = await dealsRes.json();
-    console.log("Deals encontrados:", deals);
-
     let deal = deals[0];
 
-    // Criar deal se não existir
     if (!deal) {
-      const createDealRes = await fetch("https://api.pipelinecrm.com/api/v3/deals", {
+      const createDealRes = await fetch(`${BASE}/deals?api_key=${API_KEY}`, {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: `Lead ${name || email}`,
           person_id: person.id,
@@ -80,18 +69,13 @@ export async function POST(request: Request) {
       });
 
       const createdDeal = await createDealRes.json();
-      console.log("Deal criado:", createdDeal);
-
-      if (!createDealRes.ok) {
-        throw new Error(`Erro ao criar deal: ${JSON.stringify(createdDeal)}`);
-      }
-
+      if (!createDealRes.ok) throw new Error(`Erro ao criar deal: ${JSON.stringify(createdDeal)}`);
       deal = createdDeal;
+      console.log("Deal criado:", deal);
     } else {
-      // Atualizar deal se já existe
-      const updateRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
+      const updateRes = await fetch(`${BASE}/deals/${deal.id}?api_key=${API_KEY}`, {
         method: "PATCH",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tags: [TAGS[event]],
           stage: STAGES[event],
@@ -99,12 +83,9 @@ export async function POST(request: Request) {
         })
       });
 
-      const updateResult = await updateRes.json();
-      console.log("Deal atualizado:", updateResult);
-
-      if (!updateRes.ok) {
-        throw new Error(`Erro ao atualizar deal: ${JSON.stringify(updateResult)}`);
-      }
+      const updatedDeal = await updateRes.json();
+      if (!updateRes.ok) throw new Error(`Erro ao atualizar deal: ${JSON.stringify(updatedDeal)}`);
+      console.log("Deal atualizado:", updatedDeal);
     }
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
