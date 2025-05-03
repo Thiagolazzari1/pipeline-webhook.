@@ -29,7 +29,9 @@ export async function POST(request: Request) {
   try {
     // Buscar pessoa
     const personRes = await fetch(`https://api.pipelinecrm.com/api/v3/people?email=${email}`, {
-      headers: { Authorization: `Bearer ${API_KEY}` }
+      headers: { 
+        "Authorization": `Token token=${API_KEY}` 
+      }
     });
 
     const people = await personRes.json();
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
       const createPersonRes = await fetch("https://api.pipelinecrm.com/api/v3/people", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${API_KEY}`,
+          "Authorization": `Token token=${API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ name, email, phone })
@@ -60,7 +62,9 @@ export async function POST(request: Request) {
 
     // Buscar deals
     const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, {
-      headers: { Authorization: `Bearer ${API_KEY}` }
+      headers: { 
+        "Authorization": `Token token=${API_KEY}` 
+      }
     });
 
     const deals = await dealsRes.json();
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
       const createDealRes = await fetch("https://api.pipelinecrm.com/api/v3/deals", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${API_KEY}`,
+          "Authorization": `Token token=${API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -99,7 +103,7 @@ export async function POST(request: Request) {
       const updateRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${API_KEY}`,
+          "Authorization": `Token token=${API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
