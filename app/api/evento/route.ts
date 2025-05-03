@@ -1,5 +1,3 @@
-// File: /app/api/evento/route.ts
-
 export async function POST(request: Request) {
   const body = await request.json();
   const { name, email, phone, event } = body;
@@ -26,74 +24,81 @@ export async function POST(request: Request) {
     wistia_100: "quase convertido"
   };
 
-  const PRIORITY: Record<string, number> = {
-    wistia_10: 1,
-    wistia_25: 2,
-    wistia_50: 3,
-    wistia_85: 4,
-    wistia_90: 5,
-    wistia_100: 6
-  };
-
   const API_KEY = process.env.PIPELINE_API_KEY;
 
   try {
+    // Buscar pessoa
     const personRes = await fetch(`https://api.pipelinecrm.com/api/v3/people?email=${email}`, {
       headers: { Authorization: `Bearer ${API_KEY}` }
     });
-
     const people = await personRes.json();
+    console.log("Resposta da busca de pessoa:", people);
+
     let person = people[0];
 
-    // Se a pessoa não existir, cria
+    // Criar pessoa se não existe
     if (!person) {
-      const newPersonRes = await fetch(`https://api.pipelinecrm.com/api/v3/people`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ name, email, phone })
-      });
-      person = await newPersonRes.json();
-    }
-
-    // Buscar deal existente
-    const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, {
-      headers: { Authorization: `Bearer ${API_KEY}` }
-    });
-
-    let deal = (await dealsRes.json())[0];
-
-    // Se não tiver deal, cria
-    if (!deal) {
-      const newDealRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals`, {
+      const createPersonRes = await fetch("https://api.pipelinecrm.com/api/v3/people", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          name: `Negócio de ${name || email}`,
-          person_id: person.id,
-          value: 97,
-          stage: STAGES[event],
-          tags: [TAGS[event]],
-          notes: `Evento inicial: ${event}`
+          name,
+          email,
+          phone
         })
       });
-      deal = await newDealRes.json();
-    } else {
-      // Se já tiver evento anterior de prioridade maior, ignora
-      const currentPriority = PRIORITY[event];
-      const existingStage = deal.stage;
-      const stageKey = Object.keys(STAGES).find(key => STAGES[key] === existingStage);
-      if (stageKey && PRIORITY[stageKey] >= currentPriority) {
-        return new Response(JSON.stringify({ skipped: true, reason: "Evento menos relevante que o atual." }), { status: 200 });
+
+      const createdPerson = await createPersonRes.json();
+      console.log("Pessoa criada:", createdPerson);
+
+      if (!createPersonRes.ok) {
+        throw new Error(`Erro ao criar pessoa: ${JSON.stringify(createdPerson)}`);
       }
 
-      // Atualiza deal com novo evento mais relevante
-      await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
+      person = createdPerson;
+    }
+
+    // Buscar deals
+    const dealsRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals?person_id=${person.id}`, {
+      headers: { Authorization: `Bearer ${API_KEY}` }
+    });
+    const deals = await dealsRes.json();
+    console.log("Deals encontrados:", deals);
+
+    let deal = deals[0];
+
+    // Criar deal se não existir
+    if (!deal) {
+      const createDealRes = await fetch("https://api.pipelinecrm.com/api/v3/deals", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: `Lead ${name || email}`,
+          person_id: person.id,
+          stage: STAGES[event],
+          tags: [TAGS[event]],
+          value: 97,
+          notes: `Evento recebido: ${event}`
+        })
+      });
+
+      const createdDeal = await createDealRes.json();
+      console.log("Deal criado:", createdDeal);
+
+      if (!createDealRes.ok) {
+        throw new Error(`Erro ao criar deal: ${JSON.stringify(createdDeal)}`);
+      }
+
+      deal = createdDeal;
+    } else {
+      // Atualizar deal se já existe
+      const updateRes = await fetch(`https://api.pipelinecrm.com/api/v3/deals/${deal.id}`, {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${API_KEY}`,
@@ -102,14 +107,21 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           tags: [TAGS[event]],
           stage: STAGES[event],
-          notes: `Evento atualizado: ${event}`
+          notes: `Evento recebido: ${event}`
         })
       });
+
+      const updateResult = await updateRes.json();
+      console.log("Deal atualizado:", updateResult);
+
+      if (!updateRes.ok) {
+        throw new Error(`Erro ao atualizar deal: ${JSON.stringify(updateResult)}`);
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
-    console.error("Erro ao processar evento:", err);
+    console.error("Erro no webhook:", err);
     return new Response(JSON.stringify({ error: err.message || "Erro interno" }), { status: 500 });
   }
 }
