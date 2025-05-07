@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { NextRequest, NextResponse } from 'next/server';
-
-export async function POST(request: NextRequest) {
-  console.log('Requisição recebida no endpoint /api/update-stage');
-  return NextResponse.json({ message: "Endpoint ativo" });
-}
-
 const STAGE_MAPPING = {
   BAIXISSIMA_VISUALIZACAO: "Em processo de ver masterclass - falta terminar",
   COMPLETOU_MASTERCLASS: "Terminou de ver masterclass - pronto para feedback",
@@ -20,8 +13,9 @@ const STAGE_MAPPING = {
 };
 
 export async function POST(request: NextRequest) {
-  console.log('Requisição recebida no endpoint /api/update-stage');
   try {
+    console.log('Requisição recebida no endpoint /api/update-stage');
+
     const { user_email, tag } = await request.json();
     const API_KEY = process.env.PIPELINE_API_KEY;
 
@@ -29,6 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email e tag são obrigatórios." }, { status: 400 });
     }
 
+    // Buscar Pessoa
     const personRes = await fetch(`https://api.pipedrive.com/v1/persons/find?term=${user_email}&api_token=${API_KEY}`);
     const personData = await personRes.json();
 
@@ -37,6 +32,8 @@ export async function POST(request: NextRequest) {
     }
 
     const personId = personData.data[0].id;
+
+    // Buscar Deal
     const dealRes = await fetch(`https://api.pipedrive.com/v1/deals?person_id=${personId}&api_token=${API_KEY}`);
     const dealData = await dealRes.json();
 
@@ -45,15 +42,14 @@ export async function POST(request: NextRequest) {
     }
 
     const dealId = dealData.data[0].id;
-    const stageName = STAGE_MAPPING[tag] || "Não Assistiu";
 
+    // Atualizar Deal
     const updateRes = await fetch(`https://api.pipedrive.com/v1/deals/${dealId}?api_token=${API_KEY}`, {
-      method: "PUT",
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        stage: stageName,
         label: [tag]
       })
     });
@@ -64,11 +60,10 @@ export async function POST(request: NextRequest) {
       throw new Error(`Erro ao atualizar Deal: ${JSON.stringify(updateData)}`);
     }
 
-    console.log('Requisição recebida:', { user_email, tag });
     console.log('Atualização realizada com sucesso:', updateData);
     return NextResponse.json({ success: true, data: updateData });
 
-  } catch (error) {
+  } catch (error: any) {
     console.log('Erro na atualização:', error);
     return NextResponse.json({ error: error.message || 'Erro interno' }, { status: 500 });
   }
