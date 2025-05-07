@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pessoa não encontrada." }, { status: 404 });
     }
 
-    const person = personData.data.find((p: any) => p.email && p.email.includes(user_email));
+    const person = personData.data.find((p: any) => {
+      const emails = p.email ? p.email.map((e: any) => e.value.toLowerCase()) : [];
+      return emails.includes(user_email.toLowerCase());
+    });
 
     if (!person) {
       return NextResponse.json({ error: "Pessoa não encontrada." }, { status: 404 });
