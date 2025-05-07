@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  console.log('Requisição recebida no endpoint /api/update-stage');
+  return NextResponse.json({ message: "Endpoint ativo" });
+}
+
 const STAGE_MAPPING = {
   BAIXISSIMA_VISUALIZACAO: "Em processo de ver masterclass - falta terminar",
   COMPLETOU_MASTERCLASS: "Terminou de ver masterclass - pronto para feedback",
