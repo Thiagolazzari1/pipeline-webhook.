@@ -24,14 +24,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar Pessoa
-    const personRes = await fetch(`https://api.pipedrive.com/v1/persons/find?term=${user_email}&api_token=${API_KEY}`);
+    const personRes = await fetch(`https://api.pipedrive.com/v1/persons?api_token=${API_KEY}`);
     const personData = await personRes.json();
 
     if (!personData.data || personData.data.length === 0) {
       return NextResponse.json({ error: "Pessoa não encontrada." }, { status: 404 });
     }
 
-    const personId = personData.data[0].id;
+    const person = personData.data.find((p: any) => p.email && p.email.includes(user_email));
+
+    if (!person) {
+      return NextResponse.json({ error: "Pessoa não encontrada." }, { status: 404 });
+    }
+
+    const personId = person.id;
 
     // Buscar Deal
     const dealRes = await fetch(`https://api.pipedrive.com/v1/deals?person_id=${personId}&api_token=${API_KEY}`);
