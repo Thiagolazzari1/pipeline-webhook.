@@ -56,9 +56,12 @@ export async function POST(request: NextRequest) {
       throw new Error(`Erro ao atualizar Deal: ${JSON.stringify(updateData)}`);
     }
 
+    console.log('Requisição recebida:', { user_email, tag });
+    console.log('Atualização realizada com sucesso:', updateData);
     return NextResponse.json({ success: true, data: updateData });
 
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.log('Erro na atualização:', error);
+    return NextResponse.json({ error: error.message || 'Erro interno' }, { status: 500 });
   }
 }
